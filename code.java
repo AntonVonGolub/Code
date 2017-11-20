@@ -1,45 +1,50 @@
-/* -- the cleaned up code (without Routes legacy) will be uploaded ASAP -- */
+/* -- NB: 
+ * An updated and cleaned version of the code will be uploaded in
+ * the foreseeable future.
+ *  
+ * In the meantime, the following code is intended to give the reader an idea of how the
+ * trading model algorithm is programmed. However, the focus lies not on the framework
+ * supporting the trading model. As a result, users are required to implement some
+ * of their own code in order to get the trading model running. Specifically, this
+ * concerns your price feed data and the take profit target. The only configuration
+ * is the number and sizes of the thresholds on which the Coastline Traders live.
+ * See all the TODO in the code. — */
 
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.Serializable;
-import java.util.EnumSet;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.NoSuchElementException;
 import java.util.Random;
-import java.util.Set;
 
-import ch.olsen.products.util.configuration.Configuration;
-import ch.olsen.products.util.configuration.DoubleProperty;
-import ch.olsen.products.util.configuration.EnumProperty;
-import ch.olsen.products.util.configuration.StringProperty;
-import ch.olsen.routes.atom.Atom;
-import ch.olsen.routes.atom.AtomAbstr;
-import ch.olsen.routes.atom.AtomException;
-import ch.olsen.routes.atom.AtomInput;
-import ch.olsen.routes.atom.AtomInputAbstr;
-import ch.olsen.routes.atom.AtomOutput;
-import ch.olsen.routes.atom.AtomOutputAbstr;
-import ch.olsen.routes.atom.RoutesStep;
-import ch.olsen.routes.cell.library.LibraryAutoDeploy;
-import ch.olsen.routes.data.ArrayDataElement;
-import ch.olsen.routes.data.DataElement;
-import ch.olsen.routes.data.DataType;
-import ch.olsen.routes.data.DoubleDataElement;
-import ch.olsen.routes.data.NullDataElement;
-import ch.olsen.routes.framework.RoutesFramework;
-
-@LibraryAutoDeploy(name="LykkInvestmentStrategyCode", desc="Lykke Investment Strategy Code", path="Event")
-public class Code extends AtomAbstr implements Atom {
-	private static final long serialVersionUID = 1L;
+public class Code {
 	
-	/* -- INPUTS -- */
-	public AtomInput feed;
-	public AtomInput trigger;
+	// Main method
+	public static void main(String[] args) {
+		new Code();
+	}
 	
-	/* -- CONFIGURATION -- */
-	CodeAtomConfiguration cfg;
+	// Run algo
+	public Code(){
+		// TODO Currency configuration
+		String[] ccyList = {"AUD_CAD"};/* , "AUD_JPY", "AUD_NZD", "AUD_USD", "CAD_JPY", "CHF_JPY", "EUR_AUD", "EUR_CAD", "EUR_CHF",
+				"EUR_GBP", "EUR_JPY", "EUR_NZD", "EUR_USD", "GBP_AUD", "GBP_CAD", "GBP_CHF", "GBP_JPY", "GBP_USD", "NZD_CAD",
+				"NZD_JPY", "NZD_USD", "USD_CAD", "USD_CHF", "USD_JPY"}; */
+		int length = ccyList.length;
+		
+		FXrateTrading[] trading = new FXrateTrading[length];
+		
+		// TODO Threshold configuration  (see below)
+		double[] deltaS = {0.25/100.0, 0.5/100.0, 1.0/100.0, 1.5/100.0};
+		for( int i = 0; i < length; ++i ){
+			trading[i] = new FXrateTrading(ccyList[i], deltaS.length, deltaS);
+		}
+		
+		// Run
+		PriceFeedData p = new PriceFeedData();
+		for( int i = 0; i < length; ++i ){
+			trading[i].runTradingAsymm(p);
+		}
+	}
 	
 	public class Runner{
 		public double prevExtreme;
@@ -71,6 +76,7 @@ public class Code extends AtomAbstr implements Atom {
 			fileName = new String(file);
 			deltaStarUp = dStarUp; deltaStarDown = dStarDown;
 		}
+		
 		public Runner(double threshUp, double threshDown, double price, String file, double dStarUp, double dStarDown){
 			prevExtreme = price; prevExtremeTime = 0;
 			prevDC = price; prevDCTime = 0;
@@ -124,7 +130,8 @@ public class Code extends AtomAbstr implements Atom {
 					}
 					return 0;
 				}
-			}else if( type == 1 ){
+			}
+			else if( type == 1 ){
 				if( Math.log(price.elems.ask/extreme) <= -deltaDown ){
 					prevExtreme = extreme; 
 					prevExtremeTime = extremeTime;
@@ -146,7 +153,6 @@ public class Code extends AtomAbstr implements Atom {
 					return 0;
 				}
 			}
-			
 			return 0;
 		}
 		
@@ -182,7 +188,8 @@ public class Code extends AtomAbstr implements Atom {
 					}
 					return 0;
 				}
-			}else if( type == 1 ){
+			}
+			else if( type == 1 ){
 				if( price - extreme <= -deltaDown ){
 					prevExtreme = extreme; prevExtremeTime = extremeTime;
 					type = -1;
@@ -226,6 +233,7 @@ public class Code extends AtomAbstr implements Atom {
 				type = -1; deltaUp = threshUp; deltaDown = threshDown;initalized = true;
 				fileName = new String(file);
 			}
+			
 			public Runner(double threshUp, double threshDown, double price, String file){
 				prevDC = price; extreme = price; 
 				
@@ -261,7 +269,8 @@ public class Code extends AtomAbstr implements Atom {
 						extreme = price.elems.ask;
 						return 0;
 					}
-				}else if( type == 1 ){
+				}
+				else if( type == 1 ){
 					if( Math.log(price.elems.ask/extreme) <= -deltaDown ){
 						type = -1;
 						extreme = price.elems.bid;
@@ -295,7 +304,8 @@ public class Code extends AtomAbstr implements Atom {
 						extreme = price;
 						return 0;
 					}
-				}else if( type == 1 ){
+				}
+				else if( type == 1 ){
 					if( price - extreme <= -deltaDown ){
 						type = -1;
 						extreme = price; 
@@ -323,6 +333,7 @@ public class Code extends AtomAbstr implements Atom {
 		List<Double> mySurprise, downSurprise, upSurprise;
 		
 		public Liquidity(){};
+		@SuppressWarnings("deprecation")
 		public Liquidity(PriceFeedData price, double delta1, double delta2, int lgt){
 			double prob = Math.exp(-1.0);
 			H1 = -(prob*Math.log(prob) + (1.0 - prob)*Math.log(1.0 - prob));
@@ -365,7 +376,6 @@ public class Code extends AtomAbstr implements Atom {
 		}
 		
 		public void getH1nH2(){
-			double H1temp = 0.0; double H2temp = 0.0;
 			double price = 0.0; 
 			alpha = 2.0/(100.0 + 1.0);
 			alphaWeight = Math.exp(-alpha);
@@ -387,10 +397,6 @@ public class Code extends AtomAbstr implements Atom {
 						double myProbs = getProbs(j);
 						total1 = total1*alphaWeight + (1.0 - alphaWeight)*(-Math.log(myProbs));
 						total2 = total2*alphaWeight + (1.0 - alphaWeight)*Math.pow(Math.log(myProbs), 2.0);
-						
-						//H1temp = (H1temp*total + -Math.log(myProbs))/(total + 1.0);
-						//H2temp = (H2temp*total + Math.pow(Math.log(myProbs), 2.0))/(total + 1.0); 
-						//total += 1.0;
 					}
 				}
 			}
@@ -399,6 +405,7 @@ public class Code extends AtomAbstr implements Atom {
 			System.out.println("H1:" + H1 + " H2:" + H2);
 		}
 		
+		@SuppressWarnings("deprecation")
 		public boolean Trigger(PriceFeedData price){
 			// -- update values -- 
 			boolean doComp = false;
@@ -425,7 +432,6 @@ public class Code extends AtomAbstr implements Atom {
 				downLiq =  (1.0 - CumNorm(Math.sqrt(100.0)*(dSurp - H1)/Math.sqrt(H2)));
 				diffLiq = CumNorm(Math.sqrt(100.0)*(uSurp - dSurp)/Math.sqrt(H2));
 				diffRaw = Math.sqrt(100.0)*(uSurp-dSurp)/Math.sqrt(H2);
-				//computeLiquidity();
 			}
 			return doComp;
 		}
@@ -439,7 +445,7 @@ public class Code extends AtomAbstr implements Atom {
 				}
 			}
 			if( i > 0 && where != i ){
-				//System.out.println("This should not happen! " + where);
+				System.out.println("This should not happen! " + where);
 			}
 			prevState[i] = (prevState[i] == 1 ? 0 : 1);
 			
@@ -468,14 +474,15 @@ public class Code extends AtomAbstr implements Atom {
 				}else{
 					return (1.0 - numerator/(1.0 - denominator));
 				}
-			}else{
+			}
+			else{
 				return 1.0;
 			}
 		}
 		
-		// another implementation of the CNDF for a standard normal: N(0,1)
+		// Another implementation of the CNDF for a standard normal: N(0,1)
 		double CumNorm(double x){
-			// protect against overflow
+			// Protect against overflow
 			if (x > 6.0)
 				return 1.0;
 			if (x < -6.0)
@@ -500,7 +507,6 @@ public class Code extends AtomAbstr implements Atom {
 
 			return n;
 		}
-		
 		
 		public boolean computeLiquidity(long deltaT){
 			double surpT = 0.0;
@@ -557,6 +563,7 @@ public class Code extends AtomAbstr implements Atom {
 			runner = new Runner(delta, delta, "events", delta, delta);
 			timeWindow = tW;
 		}
+		@SuppressWarnings("deprecation")
 		boolean run(PriceFeedData price){
 			if( Math.abs(runner.run(price)) == 1 ){
 				eventList.add(new Long(price.elems.time));
@@ -607,7 +614,7 @@ public class Code extends AtomAbstr implements Atom {
 			H2 = Math.exp(-dStar/delta)*Math.pow(Math.log(Math.exp(-dStar/delta)), 2.0) - (1.0 - Math.exp(-dStar/delta))*Math.pow(Math.log(1.0 - Math.exp(-dStar/delta)), 2.0) - H1*H1;
 			return true;
 		}
-		// another implementation of the CNDF for a standard normal: N(0,1)
+		// Another implementation of the CNDF for a standard normal: N(0,1)
 		double CumNorm(double x){
 			// protect against overflow
 			if (x > 6.0)
@@ -659,7 +666,8 @@ public class Code extends AtomAbstr implements Atom {
 					reference = extreme;
 					return 2;
 				}
-			}else if( type == 1 ){
+			}
+			else if( type == 1 ){
 				if( Math.log(price.elems.ask/extreme) <= -deltaDown ){
 					type = -1;
 					extreme = price.elems.bid; 
@@ -676,6 +684,7 @@ public class Code extends AtomAbstr implements Atom {
 			}
 			return 0;
 		}
+		
 		public boolean computation(PriceFeedData price){
 			if( price == null )
 				return false;
@@ -699,7 +708,7 @@ public class Code extends AtomAbstr implements Atom {
 	};
 	
 	public class CoastlineTrader{
-		double tP; /* -- total position -- */
+		double tP; /* -- Total position -- */
 		List<Double> prices;
 		List<Double> sizes;
 		
@@ -729,7 +738,7 @@ public class Code extends AtomAbstr implements Atom {
 		CoastlineTrader(double dOriginal, double dUp, double dDown, double profitT, String FxRate, int lS){
 			prices = new LinkedList<Double>();
 			sizes = new LinkedList<Double>();
-			tP = 0.0; /* -- total position -- */
+			tP = 0.0; /* -- Total position -- */
 			
 			profitTarget = cashLimit = profitT;
 			pnl = tempPnl = pnlPerc = 0.0;
@@ -743,29 +752,35 @@ public class Code extends AtomAbstr implements Atom {
 		}
 		
 		double computePnl(PriceFeedData price){
-			// compute PnL with current price
+			// TODO:
+			// Compute PnL with current price
 			return 0.0;
 		}
 		
 		double computePnlLastPrice(){
-			// compute PnL with last available price
+			// TODO:
+			// Compute PnL with last available price
 			return 0.0;
 		}
 		double getPercPnl(PriceFeedData price){
-			// percentage PnL
+			// TODO:
+			// Percentage PnL
 			return 0.0;
 		}
 		
 		boolean tryToClose(PriceFeedData price){
-			// PnL target hit implementation
+			// TODO:
+			// Check if PnL target hit implementation
 			return false;
 		}
 		
 		boolean assignCashTarget(){
-			// implement
+			// TODO:
+			// Compute cash value corresponding to percentage PnL 
 			return true;
 		}
 		
+		@SuppressWarnings("deprecation")
 		boolean runPriceAsymm(PriceFeedData price, double oppositeInv){
 			if( !initalized ){
 				runner = new Runner(deltaUp, deltaDown, price, fxRate, deltaUp, deltaDown);
@@ -786,7 +801,7 @@ public class Code extends AtomAbstr implements Atom {
 				System.out.println("Didn't compute liquidity!");
 			}
 			
-			if( tryToClose(price) ){ /* -- try to close position -- */
+			if( tryToClose(price) ){ /* -- Try to close position -- */
 				System.out.println("Close");
 				return true;
 			}
@@ -797,7 +812,7 @@ public class Code extends AtomAbstr implements Atom {
 			double size = (liquidity.liq < 0.5 ? 0.5 : 1.0);
 			size = (liquidity.liq < 0.1 ? 0.1 : size);
 			
-			if( longShort == 1 ){ // long positions only
+			if( longShort == 1 ){ // Long positions only
 				event = runner.run(price);
 				
 				if( 15.0 <= tP && tP < 30.0 ){
@@ -813,7 +828,7 @@ public class Code extends AtomAbstr implements Atom {
 				}
 				
 				if( event < 0 ){
-					if( tP == 0.0 ){ // open long position
+					if( tP == 0.0 ){ // Open long position
 						int sign = -runner.type;
 						if( Math.abs(oppositeInv) > 15.0 ){
 							size = 1.0;
@@ -829,7 +844,8 @@ public class Code extends AtomAbstr implements Atom {
 						assignCashTarget();
 						System.out.println("Open long");
 						
-					}else if( tP > 0.0 ){ // increase long position (buy)
+					}
+					else if( tP > 0.0 ){ // Increase long position (buy)
 						int sign = -runner.type;
 						double sizeToAdd = sign*size*fraction*shrinkFlong;
 						if( sizeToAdd < 0.0 ){
@@ -843,7 +859,8 @@ public class Code extends AtomAbstr implements Atom {
 						prices.add(new Double(sign == 1 ? price.elems.ask : price.elems.bid));
 						System.out.println("Cascade");
 					}
-				}else if( event > 0 &&  tP > 0.0 ){ // possibility to decrease long position only at intrinsic events
+				}
+				else if( event > 0 &&  tP > 0.0 ){ // Possibility to decrease long position only at intrinsic events
 					double pricE = (tP > 0.0 ? price.elems.bid : price.elems.ask);
 					
 					for( int i = 1; i < prices.size(); ++i ){
@@ -861,7 +878,8 @@ public class Code extends AtomAbstr implements Atom {
 						}
 					}
 				}
-			}else if( longShort == -1 ){ // short positions only
+			}
+			else if( longShort == -1 ){ // Short positions only
 				event = runner.run(price);
 				if( -30.0 < tP && tP < -15.0 ){
 					event = runnerG[1][0].run(price);
@@ -876,7 +894,7 @@ public class Code extends AtomAbstr implements Atom {
 				}
 				
 				if( event > 0 ){
-					if( tP == 0.0 ){ // open short position
+					if( tP == 0.0 ){ // Open short position
 						int sign = -runner.type;
 						if( Math.abs(oppositeInv) > 15.0 ){
 							size = 1.0;
@@ -909,7 +927,8 @@ public class Code extends AtomAbstr implements Atom {
 						prices.add(new Double(sign == 1 ? price.elems.bid : price.elems.ask));
 						System.out.println("Cascade");
 					}
-				}else if( event < 0.0 && tP < 0.0 ){
+				}
+				else if( event < 0.0 && tP < 0.0 ){
 					double pricE = (tP > 0.0 ? price.elems.bid : price.elems.ask);
 					
 					for( int i = 1; i < prices.size(); ++i ){
@@ -927,7 +946,8 @@ public class Code extends AtomAbstr implements Atom {
 						}
 					}
 				}
-			}else{
+			}
+			else{
 				System.out.println("Should never happen! " + longShort);
 			}
 			return true;
@@ -939,7 +959,6 @@ public class Code extends AtomAbstr implements Atom {
 		String FXrate;
 		Liquidity liquidity;
 		double currentTime, oneDay;
-		boolean init;
 		
 		FXrateTrading(){};
 		FXrateTrading(String rate, int nbOfCoastTraders, double[] deltas){
@@ -953,18 +972,9 @@ public class Code extends AtomAbstr implements Atom {
 				coastTraderLong[i] = new CoastlineTrader(deltas[i], deltas[i], deltas[i], deltas[i], rate.toString(), 1);
 				coastTraderShort[i] =  new CoastlineTrader(deltas[i], deltas[i], deltas[i], deltas[i], rate.toString(), -1);
 			}
-			init = false;
 		};
 		
 		boolean runTradingAsymm(PriceFeedData price){
-			if( !init ){
-				init = true;
-				//liquidity = new Liquidity(price, 0.05/100.0, 0.1/100.0, 50);
-			}
-			
-			//liquidity.Trigger(price);
-			//System.out.println("liqEMA: " + liquidity.liqEMA);
-			
 			for( int i = 0; i < coastTraderLong.length; ++i ){
 				coastTraderLong[i].runPriceAsymm(price, coastTraderShort[i].tP);
 				coastTraderShort[i].runPriceAsymm(price, coastTraderLong[i].tP);
@@ -1000,10 +1010,10 @@ public class Code extends AtomAbstr implements Atom {
 					totalPnlPerc += (coastTraderLong[i].pnlPerc + (coastTraderLong[i].tempPnl + coastTraderLong[i].computePnlLastPrice())/coastTraderLong[i].cashLimit*coastTraderLong[i].profitTarget
 							+ coastTraderShort[i].pnlPerc + (coastTraderShort[i].tempPnl + coastTraderShort[i].computePnlLastPrice())/coastTraderShort[i].cashLimit*coastTraderShort[i].profitTarget);
 				}
-				//double tempSurpScale = Math.sqrt(50)*(liquidity.surp - liquidity.H1)/Math.sqrt(liquidity.H2); 
 				fw.append((long)time + "," + totalPnl + "," + totalPnlPerc + "," + totalPos + "," + totalLong + "," + totalShort + "," + price + "\n");
 				fw.close();
-			}catch(IOException e){
+			}
+			catch(IOException e){
 				System.out.println("Failed opening DC thresh file! " + e.getMessage());
 				return false;
 			}
@@ -1011,204 +1021,36 @@ public class Code extends AtomAbstr implements Atom {
 		};
 	};
 	
-	CodeStatus st = new CodeStatus();
-	public static class CodeStatus implements Serializable {
-		private static final long serialVersionUID = 1L;
-
-		public FXrateTrading[] trading = null;
-		public boolean initilized = false;
-	}
-	
-	
-	public Code(RoutesFramework framework){
-		super(framework, "Engine");
-		
-		cfg = new CodeAtomConfiguration();
-		
-		/* -- handling the feed -- */
-		//final DataType priceType = PriceFeedData.priceFeedType;
-		feed = new AtomInputAbstr(this,"feed", "Input the price feed"){
-			private static final long serialVersionUID = 1L;
-			public DataType getType() {
-				return ArrayDataElement.Factory.buildType(PriceFeedData.priceFeedType);
-			}
-			public RoutesStep[] receive_internal(DataElement data) throws AtomException {
-				if( data == null){
-					System.out.println("Null element for input!");
-					return null;
-				}
-				if( st == null ){
-					st = new CodeStatus();
-				}
-				ArrayDataElement ar = data.toArrayDE();
-				
-				if( !st.initilized ){
-					if( !initilize(ar.getAll()) ){
-						throw new AtomException("Dynamic Heat Map initilizer failed!");
-					}
-					return null;
-				}else{
-					if( !handleScaling(ar.getAll()) ){
-						/* -- updating Scaling failed, throw an exception -- */
-						throw new AtomException("Dynamic Heat Map update failed!");
-					}
-					return null;
-				}
-				
-			}
+	/* -- Price feed -- */
+	// Simple
+	public class PriceFeedData{
+		// TODO Implement your feed
+		Elems elems;
+		double ask;
+		PriceFeedData(){
+			elems = new Elems();
 		};
 		
-		trigger = new AtomInputAbstr(this, "trigger", "End of Data trigger to print"){
-			private static final long serialVersionUID = 1L;
-			public DataType getType() throws AtomException {
-				return NullDataElement.nullDataType;
-			}
-			public RoutesStep[] receive_internal(DataElement data)
-					throws AtomException {
-					if( !getPrintOut() ){
-						throw new AtomException("Printing failed!");
-					}
-					return null;
-			}
-		};	
-	}
+		public class Elems{
+			double mid = 1.1;
+			double ask = 1.1;
+			double bid = 1.0;
+			long time = System.currentTimeMillis();
+		}
+	};
 	
-	public boolean initilize(DataElement data[]){
-		String[] ccyList = {"AUD_CAD", "AUD_JPY", "AUD_NZD", "AUD_USD", "CAD_JPY", "CHF_JPY", "EUR_AUD", "EUR_CAD", "EUR_CHF",
-				"EUR_GBP", "EUR_JPY", "EUR_NZD", "EUR_USD", "GBP_AUD", "GBP_CAD", "GBP_CHF", "GBP_JPY", "GBP_USD", "NZD_CAD",
-				"NZD_JPY", "NZD_USD", "USD_CAD", "USD_CHF", "USD_JPY"};
+	/* -- Configuration
+	// TODO
+	public static class Configuration{
+		public double startThreshold;
+		public int numberOf;
+		public double endThreshold;
 		
-		st.trading = new FXrateTrading[ccyList.length];
-		double[] deltaS = {0.25/100.0, 0.5/100.0, 1.0/100.0, 1.5/100.0};
-		for( int i = 0; i < st.trading.length; ++i ){
-			st.trading[i] = new FXrateTrading(ccyList[i], deltaS.length, deltaS);
-		}
-		st.initilized = true;
-		
-		for( DataElement price : data ){
-			PriceFeedData p = PriceFeedData.cast(price.toAggregatedDE());
-			for( int i = 0; i < st.trading.length; ++i ){
-				if( st.trading[i].FXrate.equals(p.elems.instrument.toString()) ){
-					if( !st.trading[i].runTradingAsymm(p) ){
-						System.out.println("Failed at updating!");
-						return false;
-					}
-					break;
-				}
-			}
-		}
-		return true;
-	}
-	
-	public boolean handleScaling(DataElement data[]){
-		for( DataElement price : data ){
-			PriceFeedData p = PriceFeedData.cast(price.toAggregatedDE());
-			for( int i = 0; i < st.trading.length; ++i ){
-				if( st.trading[i].FXrate.equals(p.elems.instrument.toString()) ){
-					if( !st.trading[i].runTradingAsymm(p) ){
-						System.out.println("Failed at updating!");
-						return false;
-					}
-					break;
-				}
-			}
-		}
-		return true;
-	}
-	
-	public boolean getPrintOut(){
-		/*
-		for( int k = 0; k < st.array.length; ++k ){
-			String ccyName = new String(st.array[k].ccyName);
-			String sep = new String(System.getProperty("file.separator"));
-			String folder = new String(sep + "home" + sep + "agolub" + sep + "workspace" + sep + "MarketTrend" + sep + ccyName + "MarketTrend.dat");
-			FileWriter fw = null;
-			
-			try{
-				fw = new FileWriter(folder, true);
-			
-				for( int i = 0; i < st.array[k].dcCounter[0].length; ++i ){
-					for( int j = 0; j < st.array[k].dcCounter[0].length; ++j ){
-						fw.append(st.array[k].dcCounter[i][j] + ",");
-					}
-					fw.append("\n");
-				}
-				fw.close();
-			}catch(IOException e){
-				System.out.println("Failed opening DC thresh file! " + e.getMessage());
-				return false;
-			}
-		}
-		*/
-		return true;
-	}
-	
-	
-	/* -- REMARK:  -- */
-	public final String describe() {
-		return "CodeAtom";
-	}
-	
-	@Override
-	public void reset() {
-		st.initilized = false;
-		st.trading = null;
-	}
-	
-	public CodeAtomConfiguration getParameters() {
-		return cfg;
-	}
-	
-	public enum TypeSpacing{ LOG, LINEAR, BYPASS };
-	
-	/* -- Sets the Configuration - only two variables, slow and fast moving average arguments -- */
-	public static class CodeAtomConfiguration extends 
-        Configuration<CodeAtomConfiguration> {
-
-		private static final long serialVersionUID = 0L; /* <- what is this for? */
-		
-		/* -- input: start day, end day, bin size -- */
-		public DoubleProperty startThreshold;
-		public DoubleProperty numberOf;
-		public DoubleProperty endThreshold;
-		//public DoubleProperty ccyNumber;
-		public EnumProperty<TypeSpacing> type;
-		public StringProperty directory;
-		
-		
-		public CodeAtomConfiguration() {
-			
-			/* -- starting threshold, and number of DC threshold -- */
-			startThreshold = new DoubleProperty("StartingThreshold", "Start Threshold", 0.001, 0.0, Double.MAX_VALUE, false);
-			numberOf = new DoubleProperty("NumberofThresholds", "Number Of Thresholds", 10.0, 0.0, Double.MAX_VALUE, false);
-			endThreshold = new DoubleProperty("EndThreshold", "End Threshold", 0.05, 0.0, Double.MAX_VALUE, false);
-			type = new EnumProperty<TypeSpacing>("SpacingType", "Spacing Type", TypeSpacing.LOG, false);
-			//ccyNumber = new DoubleProperty("Number of currencies","NbOfCcy", 20.0, 0.0, Double.MAX_VALUE, false);
-			
-			// the thresholds are discarded here, as they are set manually.
-			
-			/* -- take care of this later on -- */
-			directory = new StringProperty("Writing directory","WritingDirectory", "myDir", null, false);
-		}
-		
-		public void clear() {
-		}
-
-		public String getDescription() {
-			return "CodeAtomConfig";
-		}
-
-		public String getName() {
-			return "codeAtomConfig";
+		public Configuration() {
+			startThreshold = 0.001;
+			numberOf = 10;
+			endThreshold = 0.05;
 		}
 	}
-	
-	@Override
-	public Serializable getManualStatusData() {
-		return st;
-	}
-	@Override
-	public void setManualStateData(Serializable value) {
-		st = (CodeStatus)value;
-	}
+	*/
 }
