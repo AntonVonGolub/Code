@@ -1,9 +1,10 @@
 /* -- NB: 
- * An updated and cleaned version of the code will be uploaded in
- * the foreseeable future.
+ * See the folder
+ * 	Code/tree/master/LimitOrders
+ * for eight Java classes implementing the trading model algorithm for limit orders.
  *  
- * In the meantime, the following code is intended to give the reader an idea of how the
- * trading model algorithm is programmed. However, the focus lies not on the framework
+ * The following code is intended to give the reader an overview of how the
+ * trading model algorithm functions. However, the focus lies not on the framework
  * supporting the trading model. As a result, users are required to implement some
  * of their own code in order to get the trading model running. Specifically, this
  * concerns your price feed data and the take profit target. The only configuration
