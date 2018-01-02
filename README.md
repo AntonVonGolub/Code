@@ -1,10 +1,10 @@
-The code presented here relates to the book chapter cited below. There are two versions of the trading model algorithm:
+The code presented here relates to the book chapter cited below. There are two implementations of the trading model algorithm:
 
-1. Code/blob/master/code.java
+1. *code.java*:
 This class is intended to give an overview of how the trading model algorithm functions. However, the focus lies not on the framework supporting the trading model. As a result, users are required to implement some of their own code in order to get the trading model running.
 
-2. Code/tree/master/LimitOrders
-A fully functional implementation of the Alpha Enging utilizinh limit orders.
+2. *LimitOrders*:
+A folder containing a fully functional version of the Alpha Engine utilizing limit orders.
 
 
 Source:
